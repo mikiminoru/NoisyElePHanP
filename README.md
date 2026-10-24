@@ -1,10 +1,10 @@
-Teniendo en cuenta los CVE CVE-2026-109618 y CVE-2026-109619 de PHP, este es un script para que, teniendo en cuenta un listado de aplicaciones web (aka CMDB corporativa correspondiente), detecte si la aplicación usa PHP, si detecta la versión, y si es vulnerable a estos CVE (ya que también se han publicado las versiones afectadas). Creo que puede ayudar más establecer prioridades de mitigación en vez de buscar como loc@s PoCs con regalito. 
+Teniendo en cuenta los CVE CVE-2026-109618 y CVE-2026-109619 de PHP, este es un script para que, teniendo en cuenta un listado de aplicaciones web (aka CMDB corporativa correspondiente), detecta si la aplicación usa PHP, si detecta la versión, y si es vulnerable a estos CVE (ya que también se han publicado las versiones afectadas). Creo que puede ayudar más establecer prioridades de mitigación en vez de buscar como loc@s PoCs con regalito. 
 
 El script es modulable y detecta si la web usa ciertos CMS según rutas y ficheros por defecto, y según las tecnologías que haya en una organización se puede ampliar para que las detecte sin afectar (mucho) a lo que ya está implementado.
 
-Y además, como nos gustan los colorinchis para compartirlo a nivel ejecutivo, el resultado es un excel con diferentes pestañas, y deja en una gráfica los números de webs que usan PHP y nº de las afectadas por los CVEs.
+El resultado es un excel con diferentes pestañas, y deja en una gráfica los números de webs que usan PHP y nº de las afectadas por los CVEs.
 
-Es un escaneo activo (y muy ruidoso) de toda la vida del Señor, pero:
+Es un escaneo activo (y muy ruidoso), pero:
 - Orientado a la vulnerabilidad que nos atañe,
 - Nos permite tener una CMDB más actualizada desde una perspectiva externa (que desde dentro y sin bloqueos no es lo mismo, pero si lo ejecutas desde dentro también está bien para tener más/mejor/diferente visibilidad)
 - Nos da una mejor visión de cómo exponen información las aplicaciones de una organización gracias a recursos por defecto que no siempre se restringen
