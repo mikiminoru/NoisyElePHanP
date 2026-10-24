@@ -2838,12 +2838,15 @@ def main():
         sys.exit(1)
 
     # Automatically generated file name (there's no more -o/--output):
-    # "output_<timestamp of the moment the run finishes>", with extension
-    # .xlsx for the Excel and .html for its equivalent report, so that
-    # each run leaves its own files without overwriting those of a
-    # previous run.
+    # "<input file name, without its extension>_<timestamp of the moment
+    # the run finishes>", with extension .xlsx for the Excel and .html
+    # for its equivalent report, so that each run leaves its own files
+    # without overwriting those of a previous run, and the output is
+    # traceable back to which input list produced it (e.g. an input file
+    # "webs.txt" produces "webs_<timestamp>.xlsx"/".html").
+    input_stem = os.path.splitext(os.path.basename(args.input))[0]
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_base = f"output_{timestamp}"
+    output_base = f"{input_stem}_{timestamp}"
     write_excel(results, f"{output_base}.xlsx")
     write_html(results, f"{output_base}.html")
 
