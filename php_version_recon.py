@@ -1658,13 +1658,14 @@ FORMULA_TRIGGER_CHARS = ("=", "+", "-", "@", "\t", "\r")
 # Styles shared by ALL tabs (Readme, Dashboard, PHP Recon, WP, Drupal,
 # O365): each function that used to write a sheet (_write_table_to_sheet,
 # build_dashboard_sheet, build_readme_sheet) used to create its own
-# identical Font/PatternFill objects on its own (same corporate color
-# "6B5B46", a muted warm brown/taupe); openpyxl allows reusing the same
+# identical Font/PatternFill objects on its own (same accent color
+# "7A2E2E", a muted brick/oxblood red - a red-team-coded accent on a warm
+# cream background); openpyxl allows reusing the same
 # style instance across many cells without problems, so they are defined
 # once here.
-EXCEL_TITLE_FONT = Font(bold=True, size=14, color="6B5B46")
+EXCEL_TITLE_FONT = Font(bold=True, size=14, color="7A2E2E")
 EXCEL_HEADER_FONT = Font(bold=True, color="FFFCF5")
-EXCEL_HEADER_FILL = PatternFill(start_color="6B5B46", end_color="6B5B46", fill_type="solid")
+EXCEL_HEADER_FILL = PatternFill(start_color="7A2E2E", end_color="7A2E2E", fill_type="solid")
 EXCEL_LABEL_FONT = Font(bold=True)
 EXCEL_HEADER_ALIGNMENT = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
@@ -1767,8 +1768,11 @@ def build_readme_sheet(wb, ws=None):
 
     wrap_top = Alignment(wrap_text=True, vertical="top")
 
-    ws["A1"] = "PHP/CMS reconnaissance report"
+    ws["A1"] = "Offensive Reconnaissance"
     ws["A1"].font = EXCEL_TITLE_FONT
+
+    ws["A2"] = f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    ws["A2"].font = Font(italic=True, color="8C7570")
 
     ws["A3"] = README_DISCLAIMER
     ws["A3"].alignment = wrap_top
@@ -2285,25 +2289,29 @@ def build_dashboard_html_data(normal_rows: list, sso_rows: list) -> dict:
 # textContent/createElement (see createText/cell below) and NEVER via
 # innerHTML with string concatenation, to avoid stored XSS when this
 # report is opened in a real browser.
+#
+# __REPORT_DATE__ is substituted in write_html() with the scan's own
+# execution timestamp (a fixed, locally-generated string, never user/
+# target-controlled data), so no escaping is needed for it.
 _HTML_REPORT_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PHP/CMS reconnaissance report</title>
+<title>Offensive Reconnaissance — __REPORT_DATE__</title>
 <style>
   :root {
-    --header: #6B5B46;
-    --header-light: #EFE3CC;
-    --terracotta: #A8674A;
+    --header: #7A2E2E;
+    --header-light: #F0DCD6;
+    --terracotta: #B33A3A;
     --sage: #7A8C5D;
     --amber: #BE9A4D;
-    --text: #3F362B;
-    --muted: #8A7F6E;
-    --border: #E0D3BA;
-    --cream: #FAF6EF;
+    --text: #3A2C2C;
+    --muted: #8C7570;
+    --border: #E3C9C4;
+    --cream: #FBF3EF;
     --panel: #FFFCF5;
-    --stripe: #F5EEE0;
+    --stripe: #F6E9E5;
   }
   * { box-sizing: border-box; }
   body {
@@ -2384,8 +2392,8 @@ _HTML_REPORT_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
 <header>
-  <h1>PHP/CMS reconnaissance report</h1>
-  <p>Generated automatically — for use only in pentests or bug bounty programs with explicit authorization.</p>
+  <h1>Offensive Reconnaissance</h1>
+  <p>Generated on __REPORT_DATE__ — for use only in pentests or bug bounty programs with explicit authorization.</p>
 </header>
 <nav class="tabs" id="tabs"></nav>
 <div class="toolbar">
@@ -2735,7 +2743,9 @@ def write_html(results: list, output_path: str):
     # early and break the page).
     json_payload = json.dumps(sheets_payload, ensure_ascii=False).replace("</script>", "<\\/script>")
 
+    report_date = datetime.now().strftime("%Y-%m-%d %H:%M")
     html_doc = _HTML_REPORT_TEMPLATE.replace("__SHEETS_JSON__", json_payload)
+    html_doc = html_doc.replace("__REPORT_DATE__", report_date)
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(html_doc)
