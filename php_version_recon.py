@@ -2,14 +2,19 @@
 """
 php_version_recon.py
 ---------------------
-Script de reconocimiento para identificar la version de PHP usada por una lista de aplicaciones web, pensado UNICAMENTE para uso en pentests o programas de bug bounty con autorizacion explicita sobre los activos.
+Script de reconocimiento para identificar la version de PHP usada por una
+lista de aplicaciones web, pensado UNICAMENTE para uso en pentests o
+programas de bug bounty con autorizacion explicita sobre los activos.
 
-Lee un fichero de texto con un activo (URL) por linea, lanza varias tecnicas de fingerprinting contra cada uno y vuelca los resultados en un Excel: una fila por activo, una columna por tecnica/herramienta.
+Lee un fichero de texto con un activo (URL) por linea, lanza varias
+tecnicas de fingerprinting contra cada uno y vuelca los resultados en un
+Excel: una fila por activo, una columna por tecnica/herramienta.
 
 Requisitos:
     pip install requests openpyxl
 
-Herramientas externas opcionales (si estan instaladas en el PATH, se usan； si no, esa columna se rellena con "N/A - herramienta no encontrada"):
+Herramientas externas opcionales (si estan instaladas en el PATH, se usan；
+si no, esa columna se rellena con "N/A - herramienta no encontrada"):
     - nmap        (script http-php-version)
     - whatweb
     - nikto
@@ -44,7 +49,7 @@ from openpyxl.styles import Font, Alignment, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.exceptions import IllegalCharacterError
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
-from openpyxl.chart import PieChart, Reference
+from openpyxl.chart import PieChart, BarChart, Reference
 from openpyxl.chart.label import DataLabelList
 
 requests.packages.urllib3.disable_warnings()
@@ -196,6 +201,7 @@ HEADERS_UA = {"User-Agent": "Mozilla/5.0 (PHP-Recon-Scan; authorized-pentest)"}
 # tienen parche disponible segun el boletin.
 # --------------------------------------------------------------------------
 AWS_BULLETIN_URL = "https://aws.amazon.com/es/security/security-bulletins/2026-143-aws/"
+CVE_COLUMN_NAME = "CVE-2026-109618 / CVE-2026-109619"
 PHP_CVE_FIXED_VERSIONS = {
     (8, 5): (12, "8.5.12"),
     (8, 4): (27, "8.4.27"),
@@ -1353,7 +1359,7 @@ DASHBOARD_METRICS = [
     # (etiqueta, funcion que decide si una fila "cumple" la metrica)
     (
         "Vulnerables a CVE-2026-109618 / CVE-2026-109619 (PHP)",
-        lambda r: str(r.get("CVE-2026-109618 / CVE-2026-109619", "")).startswith("VULNERABLE"),
+        lambda r: str(r.get(CVE_COLUMN_NAME, "")).startswith("VULNERABLE"),
     ),
     ("Usan WordPress", lambda r: r.get("Usa WP") == "Si"),
     ("Usan Drupal", lambda r: r.get("Usa Drupal") == "Si"),
@@ -1443,6 +1449,90 @@ def build_dashboard_sheet(wb, normal_rows: list, sso_rows: list):
         pie.width = 11
         anchor = f"G{chart_anchor_rows[offset]}"
         ws.add_chart(pie, anchor)
+
+    # ----------------------------------------------------------------------
+    # Desglose adicional especifico del CVE-2026-109618 / CVE-2026-109619:
+    # una grafica de barras con 3 categorias (Vulnerables / No vulnerables /
+    # Indeterminado) en vez de solo "Cumplen/No cumplen" de la tarta de
+    # arriba, para no confundir "confirmado seguro" con "no se pudo
+    # determinar la version de PHP" (la tarta de arriba mete ambos casos en
+    # el mismo "No cumplen"). Debajo, el listado de los dominios/activos
+    # concretos afectados, para identificarlos sin tener que filtrar la
+    # hoja principal a mano.
+    # ----------------------------------------------------------------------
+    vulnerable_rows = [
+        r for r in normal_rows
+        if str(r.get(CVE_COLUMN_NAME, "")).startswith("VULNERABLE")
+    ]
+    no_vulnerable_rows = [
+        r for r in normal_rows
+        if str(r.get(CVE_COLUMN_NAME, "")).startswith("No vulnerable")
+    ]
+    indeterminado_count = total_evaluados - len(vulnerable_rows) - len(no_vulnerable_rows)
+
+    breakdown_header_row = first_data_row + len(DASHBOARD_METRICS) + 2
+    ws.cell(row=breakdown_header_row - 1, column=1,
+            value="Desglose CVE-2026-109618 / CVE-2026-109619").font = title_font
+
+    breakdown_headers = ["Estado frente al CVE", "Nº de activos"]
+    for col_idx, h in enumerate(breakdown_headers, start=1):
+        cell = ws.cell(row=breakdown_header_row, column=col_idx, value=h)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    breakdown_data = [
+        ("Vulnerables", len(vulnerable_rows)),
+        ("No vulnerables (version segura)", len(no_vulnerable_rows)),
+        ("Indeterminado (sin version de PHP detectada)", indeterminado_count),
+    ]
+    breakdown_first_row = breakdown_header_row + 1
+    for offset, (etiqueta, valor) in enumerate(breakdown_data):
+        row = breakdown_first_row + offset
+        ws.cell(row=row, column=1, value=etiqueta)
+        ws.cell(row=row, column=2, value=valor)
+    breakdown_last_row = breakdown_first_row + len(breakdown_data) - 1
+
+    # Grafica de barras (no de tarta, para distinguirla visualmente de las
+    # de arriba) con las 3 categorias del desglose. Misma logica de
+    # from_rows/from_cols que las tartas: aqui los datos van en COLUMNA
+    # (B{primera}:B{ultima}), que es justo el caso por defecto de
+    # add_data (from_rows=False), asi que no hace falta tocarlo.
+    bar = BarChart()
+    bar.type = "col"
+    bar.title = "Activos frente al CVE (desglose)"
+    bar.y_axis.title = "Nº de activos"
+    bar_data = Reference(ws, min_col=2, min_row=breakdown_header_row, max_row=breakdown_last_row)
+    bar_cats = Reference(ws, min_col=1, min_row=breakdown_first_row, max_row=breakdown_last_row)
+    bar.add_data(bar_data, titles_from_data=True)
+    bar.set_categories(bar_cats)
+    bar.legend = None
+    bar.height = 7
+    bar.width = 11
+    bar_anchor_row = chart_anchor_rows[-1] + 16
+    ws.add_chart(bar, f"G{bar_anchor_row}")
+
+    # Listado de los activos vulnerables concretos (dominio + detalle).
+    domains_header_row = breakdown_last_row + 3
+    ws.cell(row=domains_header_row - 1, column=1,
+            value="Activos vulnerables a CVE-2026-109618 / CVE-2026-109619").font = title_font
+
+    if not vulnerable_rows:
+        ws.cell(row=domains_header_row, column=1,
+                value="Ningun activo vulnerable detectado.")
+    else:
+        domains_headers = ["Activo", "URL final (tras redirecciones)", "Detalle"]
+        for col_idx, h in enumerate(domains_headers, start=1):
+            cell = ws.cell(row=domains_header_row, column=col_idx, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        for offset, r in enumerate(vulnerable_rows):
+            row = domains_header_row + 1 + offset
+            ws.cell(row=row, column=1, value=sanitize_cell_value(r.get("Activo", "")))
+            ws.cell(row=row, column=2, value=sanitize_cell_value(r.get("URL final (tras redirecciones)", "")))
+            ws.cell(row=row, column=3, value=sanitize_cell_value(r.get(CVE_COLUMN_NAME, "")))
+            ws.cell(row=row, column=3).alignment = Alignment(vertical="top", wrap_text=True)
 
 
 def write_excel(results: list, output_path: str):
