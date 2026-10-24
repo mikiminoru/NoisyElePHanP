@@ -1297,15 +1297,6 @@ PRIORITY_CRITERIA_NOTE = (
     "mere generic use of PHP."
 )
 
-README_DISCLAIMER = (
-    "This report (Excel and HTML) was generated with php_version_recon.py, "
-    "a reconnaissance script intended ONLY for use in pentests or bug "
-    "bounty programs with explicit authorization over the assets "
-    "analyzed. Using this tool and this report without that authorization "
-    "may be illegal."
-)
-
-
 def run_cmd(cmd: list, timeout: int = 60) -> str:
     try:
         result = subprocess.run(
@@ -1757,7 +1748,7 @@ def _write_table_to_sheet(ws, columns: list, rows: list) -> int:
 
 
 # --------------------------------------------------------------------------
-# Readme tab: authorized-use disclaimer + criteria for the "Priority"
+# Readme tab: report title/generation date + criteria for the "Priority"
 # column (PRIORITY_CRITERIA/PRIORITY_CRITERIA_NOTE), so that whoever opens
 # the report knows at a glance what each value means without having to
 # ask or read the source code.
@@ -1774,16 +1765,11 @@ def build_readme_sheet(wb, ws=None):
     ws["A2"] = f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}"
     ws["A2"].font = Font(italic=True, color="8C7570")
 
-    ws["A3"] = README_DISCLAIMER
-    ws["A3"].alignment = wrap_top
-    ws.merge_cells("A3:D3")
-    ws.row_dimensions[3].height = 45
-
-    ws["A5"] = "Criteria for the \"Priority\" column"
-    ws["A5"].font = EXCEL_TITLE_FONT
+    ws["A4"] = "Criteria for the \"Priority\" column"
+    ws["A4"].font = EXCEL_TITLE_FONT
 
     headers = ["Priority", "Criterion", "Description"]
-    header_row = 6
+    header_row = 5
     for col_idx, h in enumerate(headers, start=1):
         _apply_header_style(ws.cell(row=header_row, column=col_idx, value=h))
 
@@ -2219,13 +2205,12 @@ def _rows_as_lists(columns: list, rows: list) -> list:
 
 def build_readme_html_data() -> dict:
     """
-    HTML equivalent of build_readme_sheet: same disclaimer and same
-    criteria for the "Priority" column (PRIORITY_CRITERIA/
-    PRIORITY_CRITERIA_NOTE), as plain data so write_html can render them
-    without depending on openpyxl.
+    HTML equivalent of build_readme_sheet: same criteria for the
+    "Priority" column (PRIORITY_CRITERIA/PRIORITY_CRITERIA_NOTE), as
+    plain data so write_html can render them without depending on
+    openpyxl.
     """
     return {
-        "disclaimer": README_DISCLAIMER,
         "criteria": [
             {"priority": p, "criterion": c, "description": d}
             for (p, c, d) in PRIORITY_CRITERIA
@@ -2380,10 +2365,6 @@ _HTML_REPORT_TEMPLATE = """<!DOCTYPE html>
   .cve-ok .bar-fill { background: var(--sage); }
   .cve-indet .bar-fill { background: var(--amber); }
   .table-vuln th { background: var(--terracotta); }
-  .readme-disclaimer {
-    background: #F6EEDA; border: 1px solid #D9C9A3; border-radius: 8px;
-    padding: 14px 18px; margin-bottom: 18px; font-size: 0.95em; line-height: 1.5;
-  }
   .table-readme td { white-space: normal; }
   .readme-note {
     margin-top: 14px; font-size: 0.85em; color: var(--muted); font-style: italic;
@@ -2540,11 +2521,6 @@ function renderTable(sheet, container) {
 
 function renderReadme(sheet, container) {
   const d = sheet.data;
-
-  const disclaimer = document.createElement("div");
-  disclaimer.className = "readme-disclaimer";
-  disclaimer.appendChild(createText(d.disclaimer));
-  container.appendChild(disclaimer);
 
   container.appendChild(cell("h2", 'Criteria for the "Priority" column'));
 
